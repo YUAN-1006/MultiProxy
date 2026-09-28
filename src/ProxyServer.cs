@@ -150,10 +150,8 @@ namespace MultiProxy
                 try
                 {
                     if (iface.Index > 0)
-                    {
-                        socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.UnicastInterface,
+                                           socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.UnicastInterface,
                             BitConverter.ToInt32(BitConverter.GetBytes(iface.Index), 0));
-                    }
                     socket.Bind(new IPEndPoint(iface.IPv4, 0));
                     await socket.ConnectAsync(host, port);
                 }
