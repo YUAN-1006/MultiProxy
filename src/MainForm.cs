@@ -247,6 +247,7 @@ namespace MultiProxy
             _chartSpeed = new Chart
             {
                 Dock = DockStyle.Fill,
+                MinimumSize = new Size(100, 100), // 修复：防止高度为0导致崩溃
                 BackColor = Color.White
             };
 
