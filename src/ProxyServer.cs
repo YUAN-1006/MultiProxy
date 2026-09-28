@@ -149,9 +149,7 @@ namespace MultiProxy
                 Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 try
                 {
-                    if (iface.Index > 0)
-                                           socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.UnicastInterface,
-                            BitConverter.ToInt32(BitConverter.GetBytes(iface.Index), 0));
+                    // 直接绑定到指定网卡的 IP 即可
                     socket.Bind(new IPEndPoint(iface.IPv4, 0));
                     await socket.ConnectAsync(host, port);
                 }
