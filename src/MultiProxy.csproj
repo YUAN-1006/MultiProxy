@@ -13,5 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.Windows.Forms.DataVisualization" Version="1.0.0-prerelease.20110.1" />
+    <!-- 新增这一行，修复图表崩溃 -->
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
   </ItemGroup>
 </Project>
