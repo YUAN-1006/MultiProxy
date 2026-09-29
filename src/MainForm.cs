@@ -21,6 +21,7 @@ namespace MultiProxy
 
         private TextBox _txtPort;
         private Button _btnStart, _btnStop;
+        private CheckBox _chkGlobalProxy; // 新增：全局代理开关
         private Label _lblStatus;
         private DataGridView _gridStats;
         private Chart _chartSpeed;
@@ -38,9 +39,10 @@ namespace MultiProxy
 
         public MainForm()
         {
-            Text = "多网卡代理聚合器 v1.0";
-            Size = new Size(880, 660);
+            Text = "多网卡代理聚合器 v1.1 (全局代理版)";
+            Size = new Size(920, 700);
             StartPosition = FormStartPosition.CenterScreen;
+            Font = new Font("微软雅黑", 9F, FontStyle.Regular, GraphicsUnit.Point, 134);
 
             InitUI();
             LoadInterfaces();
@@ -49,7 +51,11 @@ namespace MultiProxy
 
         private void InitUI()
         {
-            _tabs = new TabControl { Dock = DockStyle.Fill };
+            _tabs = new TabControl 
+            { 
+                Dock = DockStyle.Fill,
+                Padding = new Point(15, 8)
+            };
             _tabs.TabPages.Add(CreateInterfacesTab());
             _tabs.TabPages.Add(CreateRulesTab());
             _tabs.TabPages.Add(CreateStatusTab());
@@ -64,18 +70,29 @@ namespace MultiProxy
         private TabPage CreateInterfacesTab()
         {
             var page = new TabPage("网卡配置");
+            page.BackColor = Color.FromArgb(245, 247, 250);
+
             _gridInterfaces = new DataGridView
             {
                 Dock = DockStyle.Fill,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                AllowUserToResizeRows = false,
+                RowTemplate = { Height = 32 }
             };
+            _gridInterfaces.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(230, 235, 245);
+            _gridInterfaces.ColumnHeadersDefaultCellStyle.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
+            _gridInterfaces.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 250, 252);
+
             _gridInterfaces.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Enabled", HeaderText = "启用", FillWeight = 15 });
-            _gridInterfaces.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "网卡", ReadOnly = true, FillWeight = 45 });
-            _gridInterfaces.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IPv4", ReadOnly = true, FillWeight = 25 });
-            _gridInterfaces.Columns.Add(new DataGridViewTextBoxColumn { Name = "Weight", HeaderText = "权重", FillWeight = 15 });
+            _gridInterfaces.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", HeaderText = "网卡名称", ReadOnly = true, FillWeight = 45 });
+            _gridInterfaces.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IPv4 地址", ReadOnly = true, FillWeight = 25 });
+            _gridInterfaces.Columns.Add(new DataGridViewTextBoxColumn { Name = "Weight", HeaderText = "权重 (越大跑越多)", FillWeight = 15 });
 
             _gridInterfaces.CellValueChanged += (s, e) =>
             {
@@ -88,7 +105,17 @@ namespace MultiProxy
                     _gridInterfaces.CommitEdit(DataGridViewDataErrorContexts.Commit);
             };
 
-            _btnRefresh = new Button { Text = "刷新网卡", Dock = DockStyle.Bottom, Height = 32 };
+            _btnRefresh = new Button 
+            { 
+                Text = "刷新网卡列表", 
+                Dock = DockStyle.Bottom, 
+                Height = 40,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(60, 120, 200),
+                ForeColor = Color.White,
+                Font = new Font("微软雅黑", 10F, FontStyle.Bold)
+            };
+            _btnRefresh.FlatAppearance.BorderSize = 0;
             _btnRefresh.Click += (s, e) => LoadInterfaces();
 
             page.Controls.Add(_gridInterfaces);
@@ -100,10 +127,12 @@ namespace MultiProxy
         private TabPage CreateRulesTab()
         {
             var page = new TabPage("进程规则");
-            var topPanel = new Panel { Dock = DockStyle.Top, Height = 80 };
-            _rbWhitelist = new RadioButton { Text = "白名单（仅以下进程走代理）", Location = new Point(15, 10), AutoSize = true, Checked = true };
-            _rbBlacklist = new RadioButton { Text = "黑名单（以下进程直连，其他走代理）", Location = new Point(15, 32), AutoSize = true };
-            _rbAll = new RadioButton { Text = "全部走代理（忽略列表）", Location = new Point(15, 54), AutoSize = true };
+            page.BackColor = Color.FromArgb(245, 247, 250);
+
+            var topPanel = new Panel { Dock = DockStyle.Top, Height = 90, BackColor = Color.White };
+            _rbWhitelist = new RadioButton { Text = "白名单（仅以下进程走代理）", Location = new Point(20, 15), AutoSize = true, Checked = true, Font = new Font("微软雅黑", 9.5F) };
+            _rbBlacklist = new RadioButton { Text = "黑名单（以下进程直连，其他走代理）", Location = new Point(20, 40), AutoSize = true, Font = new Font("微软雅黑", 9.5F) };
+            _rbAll = new RadioButton { Text = "全部走代理（忽略列表，适合全局测速）", Location = new Point(20, 65), AutoSize = true, Font = new Font("微软雅黑", 9.5F) };
 
             _rbWhitelist.CheckedChanged += (s, e) => RebuildProxy();
             _rbBlacklist.CheckedChanged += (s, e) => RebuildProxy();
@@ -113,13 +142,22 @@ namespace MultiProxy
             topPanel.Controls.Add(_rbBlacklist);
             topPanel.Controls.Add(_rbAll);
 
-            _listProcesses = new ListBox { Dock = DockStyle.Fill };
+            _listProcesses = new ListBox 
+            { 
+                Dock = DockStyle.Fill, 
+                BorderStyle = BorderStyle.None,
+                Font = new Font("Consolas", 10F),
+                BackColor = Color.White
+            };
 
-            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 40 };
-            _txtNewProcess = new TextBox { Location = new Point(10, 8), Width = 260, Text = "idman.exe" };
-            _btnAddProcess = new Button { Text = "添加", Location = new Point(280, 6), Width = 70 };
-            _btnRemoveProcess = new Button { Text = "删除选中", Location = new Point(360, 6), Width = 90 };
-            _btnPickRunning = new Button { Text = "从运行进程选择", Location = new Point(460, 6), Width = 130 };
+            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.White };
+            _txtNewProcess = new TextBox { Location = new Point(20, 12), Width = 250, Font = new Font("微软雅黑", 9.5F), Text = "idman.exe" };
+            _btnAddProcess = new Button { Text = "添加", Location = new Point(280, 10), Width = 70, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(60, 120, 200), ForeColor = Color.White };
+            _btnAddProcess.FlatAppearance.BorderSize = 0;
+            _btnRemoveProcess = new Button { Text = "删除选中", Location = new Point(360, 10), Width = 90, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(220, 80, 80), ForeColor = Color.White };
+            _btnRemoveProcess.FlatAppearance.BorderSize = 0;
+            _btnPickRunning = new Button { Text = "从运行进程选择", Location = new Point(460, 10), Width = 140, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(100, 110, 120), ForeColor = Color.White };
+            _btnPickRunning.FlatAppearance.BorderSize = 0;
 
             _btnAddProcess.Click += (s, e) =>
             {
@@ -159,9 +197,10 @@ namespace MultiProxy
             using (var dlg = new Form())
             {
                 dlg.Text = "选择运行中的进程";
-                dlg.Size = new Size(300, 460);
+                dlg.Size = new Size(350, 500);
                 dlg.StartPosition = FormStartPosition.CenterParent;
-                var lb = new ListBox { Dock = DockStyle.Fill };
+                dlg.Font = new Font("微软雅黑", 9.5F);
+                var lb = new ListBox { Dock = DockStyle.Fill, Font = new Font("Consolas", 10F) };
                 lb.Items.AddRange(procs);
                 lb.DoubleClick += (s, e) =>
                 {
@@ -183,13 +222,20 @@ namespace MultiProxy
         private TabPage CreateStatusTab()
         {
             var page = new TabPage("运行状态");
+            page.BackColor = Color.FromArgb(245, 247, 250);
 
-            var topPanel = new Panel { Dock = DockStyle.Top, Height = 50 };
-            var lblPort = new Label { Text = "监听端口:", Location = new Point(15, 16), AutoSize = true };
-            _txtPort = new TextBox { Location = new Point(80, 12), Width = 70, Text = "1080" };
-            _btnStart = new Button { Text = "启动", Location = new Point(170, 10), Width = 80 };
-            _btnStop = new Button { Text = "停止", Location = new Point(260, 10), Width = 80, Enabled = false };
-            _lblStatus = new Label { Text = "未运行", Location = new Point(360, 16), AutoSize = true, ForeColor = Color.Gray };
+            var topPanel = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.White };
+            var lblPort = new Label { Text = "监听端口:", Location = new Point(20, 22), AutoSize = true, Font = new Font("微软雅黑", 9.5F) };
+            _txtPort = new TextBox { Location = new Point(95, 19), Width = 70, Font = new Font("微软雅黑", 10F), Text = "1080" };
+            _btnStart = new Button { Text = "启动服务", Location = new Point(180, 17), Width = 90, Height = 30, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(46, 160, 67), ForeColor = Color.White, Font = new Font("微软雅黑", 9.5F, FontStyle.Bold) };
+            _btnStart.FlatAppearance.BorderSize = 0;
+            _btnStop = new Button { Text = "停止", Location = new Point(280, 17), Width = 70, Height = 30, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(200, 80, 80), ForeColor = Color.White, Enabled = false, Font = new Font("微软雅黑", 9.5F, FontStyle.Bold) };
+            _btnStop.FlatAppearance.BorderSize = 0;
+            
+            // 新增：全局代理复选框
+            _chkGlobalProxy = new CheckBox { Text = "全局接管系统代理 (测速可用)", Location = new Point(370, 20), AutoSize = true, Font = new Font("微软雅黑", 9.5F), ForeColor = Color.FromArgb(60, 120, 200) };
+
+            _lblStatus = new Label { Text = "未运行", Location = new Point(560, 22), AutoSize = true, ForeColor = Color.Gray, Font = new Font("微软雅黑", 9.5F, FontStyle.Bold) };
 
             _btnStart.Click += (s, e) =>
             {
@@ -205,6 +251,7 @@ namespace MultiProxy
                     _proxy.Start(port);
                     _btnStart.Enabled = false;
                     _btnStop.Enabled = true;
+                    _chkGlobalProxy.Enabled = true;
                     _lblStatus.Text = $"运行中 (127.0.0.1:{port})";
                     _lblStatus.ForeColor = Color.Green;
                     ResetChart();
@@ -220,38 +267,50 @@ namespace MultiProxy
                 _proxy?.Stop();
                 _btnStart.Enabled = true;
                 _btnStop.Enabled = false;
+                _chkGlobalProxy.Checked = false;
+                _chkGlobalProxy.Enabled = false;
                 _lblStatus.Text = "未运行";
                 _lblStatus.ForeColor = Color.Gray;
                 _statsTimer.Stop();
+                SystemProxyManager.Restore();
             };
 
             topPanel.Controls.Add(lblPort);
             topPanel.Controls.Add(_txtPort);
             topPanel.Controls.Add(_btnStart);
             topPanel.Controls.Add(_btnStop);
+            topPanel.Controls.Add(_chkGlobalProxy);
             topPanel.Controls.Add(_lblStatus);
 
             _gridStats = new DataGridView
             {
                 Dock = DockStyle.Top,
-                Height = 120,
+                Height = 130,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 ReadOnly = true,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                AllowUserToResizeRows = false,
+                RowTemplate = { Height = 30 }
             };
-            _gridStats.Columns.Add("Name", "网卡");
+            _gridStats.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(230, 235, 245);
+            _gridStats.ColumnHeadersDefaultCellStyle.Font = new Font("微软雅黑", 9F, FontStyle.Bold);
+            _gridStats.Columns.Add("Name", "网卡名称");
             _gridStats.Columns.Add("Speed", "实时速度");
             _gridStats.Columns.Add("Total", "累计流量");
 
             _chartSpeed = new Chart
             {
                 Dock = DockStyle.Fill,
-                MinimumSize = new Size(100, 100), // 修复：防止高度为0导致崩溃
-                BackColor = Color.White
+                BackColor = Color.White,
+                MinimumSize = new Size(100, 100)
             };
 
             var chartArea = new ChartArea("main");
+            chartArea.BackColor = Color.White;
             chartArea.AxisX.Title = "时间（秒前）";
             chartArea.AxisY.Title = "速度 (KB/s)";
             chartArea.AxisX.Minimum = 0;
@@ -259,11 +318,13 @@ namespace MultiProxy
             chartArea.AxisX.Interval = 10;
             chartArea.AxisX.LabelStyle.Format = "0";
             chartArea.AxisY.LabelStyle.Format = "0";
-            chartArea.AxisX.MajorGrid.LineColor = Color.LightGray;
-            chartArea.AxisY.MajorGrid.LineColor = Color.LightGray;
+            chartArea.AxisX.MajorGrid.LineColor = Color.FromArgb(230, 230, 230);
+            chartArea.AxisY.MajorGrid.LineColor = Color.FromArgb(230, 230, 230);
+            chartArea.AxisX.LineColor = Color.FromArgb(200, 200, 200);
+            chartArea.AxisY.LineColor = Color.FromArgb(200, 200, 200);
             _chartSpeed.ChartAreas.Add(chartArea);
 
-            var legend = new Legend("legend") { Docking = Docking.Top, Alignment = StringAlignment.Center };
+            var legend = new Legend("legend") { Docking = Docking.Top, Alignment = StringAlignment.Center, Font = new Font("微软雅黑", 9F) };
             _chartSpeed.Legends.Add(legend);
 
             page.Controls.Add(_chartSpeed);
@@ -292,11 +353,12 @@ namespace MultiProxy
                 var series = new Series(iface.Name)
                 {
                     ChartType = SeriesChartType.Spline,
-                    BorderWidth = 2,
+                    BorderWidth = 3,
                     Color = colors[ci % colors.Length],
                     XValueType = ChartValueType.Int32,
                     YValueType = ChartValueType.Double,
-                    IsVisibleInLegend = true
+                    IsVisibleInLegend = true,
+                    MarkerStyle = MarkerStyle.None
                 };
                 _chartSpeed.Series.Add(series);
                 _seriesMap[iface.Name] = series;
@@ -372,14 +434,18 @@ namespace MultiProxy
         // ============ 日志 ============
         private TabPage CreateLogTab()
         {
-            var page = new TabPage("日志");
+            var page = new TabPage("运行日志");
+            page.BackColor = Color.FromArgb(245, 247, 250);
             _txtLog = new TextBox
             {
                 Dock = DockStyle.Fill,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
                 ReadOnly = true,
-                Font = new Font("Consolas", 9)
+                Font = new Font("Consolas", 10F),
+                BackColor = Color.FromArgb(40, 44, 52),
+                ForeColor = Color.FromArgb(180, 200, 220),
+                BorderStyle = BorderStyle.None
             };
             page.Controls.Add(_txtLog);
             return page;
@@ -454,9 +520,34 @@ namespace MultiProxy
                 _txtLog.AppendText(msg + Environment.NewLine);
         }
 
+        // 全局代理勾选事件
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            if (_chkGlobalProxy != null)
+            {
+                _chkGlobalProxy.CheckedChanged += (s, ev) =>
+                {
+                    if (_chkGlobalProxy.Checked)
+                    {
+                        int port;
+                        int.TryParse(_txtPort.Text, out port);
+                        SystemProxyManager.Set(port);
+                        AppendLog($"[系统] 已全局接管系统代理，指向 127.0.0.1:{port}");
+                    }
+                    else
+                    {
+                        SystemProxyManager.Restore();
+                        AppendLog("[系统] 已恢复系统代理设置");
+                    }
+                };
+            }
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try { _proxy?.Stop(); } catch { }
+            SystemProxyManager.Restore();
             base.OnFormClosing(e);
         }
     }
